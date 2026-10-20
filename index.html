@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>html{color-scheme:light}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>KKPS Portfolio Total Return Swap</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+</head>
+<body>
+<style>
+/* Layout: a trade-desk explainer. Narrow reading column, one wide "ticket" diagram, a simulator that reads like a swap confirmation. */
+:root{
+  --bg:#f3f4f2; --paper:#ffffff; --ink:#18201f; --muted:#5d6966; --line:#d8dddb;
+  --ret:#1f5fbf;      /* total return leg: KKPS -> client */
+  --fund:#b4661c;     /* funding leg: client -> KKPS */
+  --hedge:#3d7d5c;    /* hedge / market */
+  --dim:#c3cac8;
+  --pos:#2f7d4f; --neg:#b23a3a;
+  --f-display:"Bricolage Grotesque","IBM Plex Sans Thai",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121716; --paper:#1a2120; --ink:#e7ecea; --muted:#9aa7a3; --line:#2e3836;
+  --ret:#7aa8ff; --fund:#e9a35e; --hedge:#73c497; --dim:#3a4644; --pos:#6fcf94; --neg:#f08080; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121716; --paper:#1a2120; --ink:#e7ecea; --muted:#9aa7a3; --line:#2e3836;
+  --ret:#7aa8ff; --fund:#e9a35e; --hedge:#73c497; --dim:#3a4644; --pos:#6fcf94; --neg:#f08080; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 56px}
+.wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(2rem,5vw,3.1rem);font-weight:700;letter-spacing:-.01em}
+h2{font-size:clamp(1.4rem,3vw,1.9rem);font-weight:700}
+h3{font-size:1.05rem;font-weight:600;font-family:var(--f-body)}
+p{margin:0;max-width:65ch}
+.eyebrow{font-family:var(--f-mono);font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.ref{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);white-space:nowrap}
+section{display:flex;flex-direction:column;gap:18px}
+
+/* header */
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.lang{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--paper)}
+.lang button{border:0;background:transparent;color:var(--muted);font:500 .8rem var(--f-mono);padding:6px 14px;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.hero{display:flex;flex-direction:column;gap:16px}
+.hero p{font-size:1.1rem}
+.legs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+.leg{padding:14px 16px;border-radius:10px;background:var(--paper);border:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+.leg b{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase}
+.leg.r b{color:var(--ret)} .leg.f b{color:var(--fund)}
+.leg span{font-size:.95rem}
+
+/* diagram */
+.ticket{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:16px}
+.steps{display:flex;gap:6px;flex-wrap:wrap}
+.steps button{flex:1 1 120px;text-align:left;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:8px 10px;cursor:pointer;font:inherit;font-size:.86rem;line-height:1.3;display:flex;gap:8px;align-items:baseline}
+.steps button .n{font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+.steps button[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--bg)}
+.steps button[aria-pressed="true"] .n{color:var(--bg);opacity:.7}
+button:focus-visible,input:focus-visible{outline:2px solid var(--ret);outline-offset:2px}
+.svgbox{overflow-x:auto}
+.svgbox svg{display:block;min-width:620px;width:100%;height:auto}
+.node rect{fill:var(--bg);stroke:var(--line);stroke-width:1.5}
+.node text{fill:var(--ink);font-family:var(--f-body)}
+.node .t1{font-weight:600;font-size:15px}
+.node .t2{fill:var(--muted);font-size:12px}
+.node.kkps rect{stroke:var(--ink);stroke-width:2}
+.flow path{fill:none;stroke-width:2.5;transition:stroke .3s,opacity .3s}
+.flow text{font-family:var(--f-mono);font-size:11.5px;transition:fill .3s,opacity .3s}
+.flow.off path{stroke:var(--dim)!important;opacity:.6}
+.flow.off text{fill:var(--dim)!important}
+.flow.on path{stroke-dasharray:8 6;animation:dash 1s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-14}}
+@media (prefers-reduced-motion:reduce){.flow.on path{animation:none;stroke-dasharray:none}}
+.stepnote{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;border-top:1px solid var(--line);padding-top:14px}
+.stepnote .big{font-family:var(--f-display);font-size:2.2rem;line-height:1;color:var(--muted)}
+.stepnote div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.tag{display:inline-block;font-family:var(--f-mono);font-size:.7rem;padding:2px 8px;border-radius:999px;border:1px solid var(--hedge);color:var(--hedge);width:fit-content}
+
+/* simulator */
+.sim{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--ink);padding:8px;font:inherit;font-size:.9rem;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.field{display:flex;flex-direction:column;gap:4px}
+.field .row{display:flex;justify-content:space-between;gap:8px;font-size:.88rem}
+.field output{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:.85rem}
+input[type=range]{width:100%;accent-color:var(--ink)}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi .l{font-size:.78rem;color:var(--muted);line-height:1.3}
+.kpi .v{font-family:var(--f-mono);font-size:1.25rem;font-variant-numeric:tabular-nums}
+.wf{display:flex;flex-direction:column;gap:8px}
+.wfrow{display:grid;grid-template-columns:150px 1fr 92px;gap:10px;align-items:center;font-size:.86rem}
+.wfrow .track{position:relative;height:18px;background:linear-gradient(var(--line),var(--line)) center/1px 100% no-repeat}
+.wfrow .bar{position:absolute;top:2px;height:14px;border-radius:3px}
+.wfrow .num{font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+.wfrow.total{border-top:1px solid var(--line);padding-top:8px;font-weight:600}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.compare .c{border-radius:10px;padding:12px;background:var(--bg);display:flex;flex-direction:column;gap:4px;min-width:0}
+.compare .c b{font-size:.85rem}
+.compare .c .mono{font-size:.9rem}
+.note{font-size:.8rem;color:var(--muted)}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+
+/* KKPS facts */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.timeline{display:flex;flex-direction:column;gap:14px;border-left:2px solid var(--line);padding-left:16px}
+.timeline div{display:flex;flex-direction:column;gap:4px;position:relative}
+.timeline div::before{content:"";position:absolute;left:-23px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--paper);border:2px solid var(--ink)}
+.timeline .yr{font-family:var(--f-mono);font-size:.8rem;font-weight:500}
+.limits{display:flex;flex-direction:column;gap:10px}
+.lim{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:center;font-size:.86rem}
+.lim .tr{display:flex;height:22px;align-items:center;gap:0}
+.lim .base{height:100%;background:var(--muted);border-radius:3px 0 0 3px}
+.lim .extra{height:100%;background:repeating-linear-gradient(45deg,var(--muted) 0 2px,transparent 2px 6px);opacity:.7;border-radius:0 3px 3px 0}
+.lim .v{font-family:var(--f-mono);font-size:.78rem;margin-left:8px;white-space:nowrap}
+.lim.hi .base{background:var(--ret)}
+.lim.hi .extra{background:repeating-linear-gradient(45deg,var(--ret) 0 2px,transparent 2px 6px)}
+.lim.hi{font-weight:600}
+.controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.ctl{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.ctl h3{font-size:.95rem}
+.ctl p{font-size:.88rem;color:var(--muted)}
+.flows3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.flows3 .ctl{border-top:3px solid var(--ret)}
+.flows3 .ctl:nth-child(2){border-top-color:var(--hedge)}
+.flows3 .ctl:nth-child(3){border-top-color:var(--fund)}
+footer{border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:6px;font-size:.82rem;color:var(--muted)}
+footer ul{margin:0;padding-left:18px}
+
+@media (max-width:760px){
+  .sim,.grid2{grid-template-columns:1fr}
+  .controls,.flows3{grid-template-columns:1fr}
+  .kpis{grid-template-columns:1fr 1fr}
+  .wfrow{grid-template-columns:110px 1fr 76px}
+  .lim{grid-template-columns:110px 1fr}
+}
+@media (max-width:440px){.legs,.compare{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="top">
+      <span class="eyebrow" data-i="eyebrow">KKP Form 56-1 One Report 2025 · Kiatnakin Phatra Securities</span>
+      <div class="lang" role="group" aria-label="Language">
+        <button id="lang-en" aria-pressed="true">EN</button>
+        <button id="lang-th" aria-pressed="false">ไทย</button>
+      </div>
+    </div>
+    <h1 data-i="h1">Portfolio Total Return Swap at KKPS</h1>
+    <p data-i="lede">A total return swap gives an institutional client the full economic return of a stock basket, meaning price moves and dividends, without the client buying the shares. KKPS holds the shares as a hedge. The client pays KKPS financing and fees in return.</p>
+    <div class="legs">
+      <div class="leg r"><b data-i="legR">Total return leg</b><span data-i="legRd">KKPS pays the client the basket's price gain and dividends. The client pays KKPS any price loss.</span></div>
+      <div class="leg f"><b data-i="legF">Funding leg</b><span data-i="legFd">The client pays KKPS interest on the notional (reference rate + spread), plus transaction fees.</span></div>
+    </div>
+  </header>
+
+  <section>
+    <span class="eyebrow" data-i="s1eb">How the money moves</span>
+    <h2 data-i="s1h">The life of one swap, step by step</h2>
+    <div class="ticket">
+      <div class="steps" id="steps"></div>
+      <div class="svgbox">
+        <svg viewBox="0 0 720 300" role="img" aria-labelledby="dgTitle">
+          <title id="dgTitle">Flows between the client, KKPS and the market</title>
+          <defs>
+            <marker id="mR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--ret)"/></marker>
+            <marker id="mF" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--fund)"/></marker>
+            <marker id="mH" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--hedge)"/></marker>
+          </defs>
+          <g class="node"><rect x="10" y="60" width="170" height="190" rx="12"/>
+            <text class="t1" x="95" y="150" text-anchor="middle" data-i="nCli">Institutional client</text>
+            <text class="t2" x="95" y="170" text-anchor="middle" data-i="nCli2">gets the exposure</text></g>
+          <g class="node kkps"><rect x="275" y="60" width="170" height="190" rx="12"/>
+            <text class="t1" x="360" y="150" text-anchor="middle">KKPS</text>
+            <text class="t2" x="360" y="170" text-anchor="middle" data-i="nK2">swap counterparty</text></g>
+          <g class="node"><rect x="540" y="60" width="170" height="190" rx="12"/>
+            <text class="t1" x="625" y="150" text-anchor="middle" data-i="nMk">Market</text>
+            <text class="t2" x="625" y="170" text-anchor="middle" data-i="nMk2">SET / foreign shares</text></g>
+
+          <g class="flow" id="f-margin"><path d="M180 85 H273" stroke="var(--fund)" marker-end="url(#mF)"/><text x="227" y="78" text-anchor="middle" fill="var(--fund)" data-i="aMargin">margin</text></g>
+          <g class="flow" id="f-perf"><path d="M275 130 H182" stroke="var(--ret)" marker-end="url(#mR)"/><text x="227" y="123" text-anchor="middle" fill="var(--ret)" data-i="aPerf">return</text></g>
+          <g class="flow" id="f-fin"><path d="M180 190 H273" stroke="var(--fund)" marker-end="url(#mF)"/><text x="227" y="183" text-anchor="middle" fill="var(--fund)" data-i="aFin">financing</text></g>
+          <g class="flow" id="f-fx"><path d="M275 232 H182" stroke="var(--ret)" marker-end="url(#mR)"/><text x="227" y="225" text-anchor="middle" fill="var(--ret)" data-i="aFx">FX lock</text></g>
+          <g class="flow" id="f-hedge"><path d="M445 105 H538" stroke="var(--hedge)" marker-end="url(#mH)"/><text x="492" y="98" text-anchor="middle" fill="var(--hedge)" data-i="aHedge">buy basket</text></g>
+          <g class="flow" id="f-unwind"><path d="M540 205 H447" stroke="var(--hedge)" marker-end="url(#mH)"/><text x="492" y="198" text-anchor="middle" fill="var(--hedge)" data-i="aUnw">sell · cash</text></g>
+          <text x="360" y="285" text-anchor="middle" font-family="var(--f-mono)" font-size="11" fill="var(--muted)" data-i="dgFoot">The client never owns the shares. KKPS does, as its hedge.</text>
+        </svg>
+      </div>
+      <div class="stepnote" aria-live="polite">
+        <span class="big mono" id="stepNum">1</span>
+        <div><h3 id="stepTitle"></h3><p id="stepBody"></p><span class="tag" id="stepTag" hidden></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <span class="eyebrow" data-i="s2eb">Try it</span>
+    <h2 data-i="s2h">Swap vs. buying in a cash account</h2>
+    <p class="muted" data-i="s2p">Move the sliders to see the three cash flows of the swap, what the client earns on the capital it puts up, and what KKPS keeps. Figures are illustrative, not KKPS pricing.</p>
+    <div class="sim">
+      <div class="panel">
+        <div class="seg" role="group" aria-label="Direction">
+          <button id="dir-long" aria-pressed="true" data-i="long">Long swap</button>
+          <button id="dir-short" aria-pressed="false" data-i="short">Short swap</button>
+        </div>
+        <div class="field"><div class="row"><label for="in-n" data-i="inN">Notional (THB m)</label><output id="o-n"></output></div><input type="range" id="in-n" min="10" max="1000" step="10" value="200"></div>
+        <div class="field"><div class="row"><label for="in-px" data-i="inPx">Basket price change</label><output id="o-px"></output></div><input type="range" id="in-px" min="-30" max="30" step="1" value="8"></div>
+        <div class="field"><div class="row"><label for="in-dy" data-i="inDy">Dividend yield (p.a.)</label><output id="o-dy"></output></div><input type="range" id="in-dy" min="0" max="8" step="0.25" value="3"></div>
+        <div class="field"><div class="row"><label for="in-t" data-i="inT">Tenor (months)</label><output id="o-t"></output></div><input type="range" id="in-t" min="1" max="12" step="1" value="6"></div>
+        <div class="field" id="fld-base"><div class="row"><label for="in-base" data-i="inBase">Reference rate (p.a.)</label><output id="o-base"></output></div><input type="range" id="in-base" min="0" max="6" step="0.25" value="2"></div>
+        <div class="field" id="fld-spr"><div class="row"><label for="in-spr" data-i="inSpr">KKPS spread (p.a.)</label><output id="o-spr"></output></div><input type="range" id="in-spr" min="0" max="4" step="0.25" value="1.5"></div>
+        <div class="field" id="fld-sbl" hidden><div class="row"><label for="in-sbl" data-i="inSbl">Stock borrow fee (p.a.)</label><output id="o-sbl"></output></div><input type="range" id="in-sbl" min="0.5" max="10" step="0.25" value="3"></div>
+        <div class="field"><div class="row"><label for="in-m" data-i="inM">Client margin (% of notional)</label><output id="o-m"></output></div><input type="range" id="in-m" min="10" max="50" step="5" value="25"></div>
+        <div class="field"><div class="row"><label for="in-fee" data-i="inFee">Transaction fee (per side)</label><output id="o-fee"></output></div><input type="range" id="in-fee" min="0" max="0.5" step="0.05" value="0.15"></div>
+      </div>
+
+      <div class="panel">
+        <div class="kpis">
+          <div class="kpi"><span class="l" data-i="kPnl">Client net P&amp;L</span><span class="v" id="k-pnl"></span></div>
+          <div class="kpi"><span class="l" data-i="kCap">Capital put up</span><span class="v" id="k-cap"></span></div>
+          <div class="kpi"><span class="l" data-i="kRoc">Return on capital</span><span class="v" id="k-roc"></span></div>
+        </div>
+        <h3 data-i="wfH">The swap's cash flows to the client (THB m)</h3>
+        <div class="wf" id="wf"></div>
+        <div class="compare">
+          <div class="c"><b data-i="cmpCash">Cash account</b><span class="mono" id="c-cash"></span><span class="note" id="c-cash2"></span></div>
+          <div class="c"><b data-i="cmpK">What KKPS keeps</b><span class="mono" id="c-k"></span><span class="note" id="c-k2"></span></div>
+        </div>
+        <p class="note" data-i="simNote">Price and dividend flows to the client are offset by KKPS's hedge basket, so KKPS earns the spread and fees, not the market move. Interest on the client's margin and taxes are ignored.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <span class="eyebrow" data-i="s3eb">What the 56-1 says</span>
+    <h2 data-i="s3h">How KKPS runs the business</h2>
+    <div class="grid2">
+      <div class="panel">
+        <h3 data-i="tlH">Timeline</h3>
+        <div class="timeline">
+          <div><span class="yr">2024</span><span data-i="tl1">KKPS launches the portfolio total return swap service for institutional clients. It needs less capital than trading through a cash account and gives clients more room to manage leverage.</span><span class="ref">One Report p.11</span></div>
+          <div><span class="yr">2025</span><span data-i="tl2">The service adds FX hedging. Clients can lock the exchange rate on profits during the month, instead of converting only at month-end.</span><span class="ref">One Report p.17</span></div>
+          <div><span class="yr" data-i="tl3y">Where it sits</span><span data-i="tl3">One of four strategies of the Equity and Derivatives Trading Department. KKPS is the counterparty to OTC Portfolio Swaps and buys local or foreign instruments to hedge them.</span><span class="ref">One Report p.43</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3 data-i="limH">2025 cash limits by strategy (THB m)</h3>
+        <div class="limits" id="limits"></div>
+        <p class="note" data-i="limNote">Hatched = extra limit that needs further approval. Board cap for the department: THB 22,000m (+5,000m for arbitrage). Department net cash used at end-2025: THB 11,085m, all strategies combined.</p>
+        <span class="ref">One Report p.45</span>
+      </div>
+    </div>
+
+    <h3 data-i="revH">Where the income comes from</h3>
+    <div class="controls">
+      <div class="ctl"><h3 data-i="rv1">Interest</h3><p data-i="rv1d">The funding leg. The client pays a rate on the notional that KKPS finances.</p></div>
+      <div class="ctl"><h3 data-i="rv2">Transaction fees</h3><p data-i="rv2d">Charged when the client opens, changes or closes positions in the basket.</p></div>
+      <div class="ctl"><h3 data-i="rv3">Securities lending fees</h3><p data-i="rv3d">On short swaps, KKPS borrows the shares to hedge and charges a borrow fee.</p></div>
+    </div>
+    <span class="ref">One Report p.43 · <span data-i="pricing">prices set by the Equity and Derivatives Trading Department</span></span>
+
+    <h3 data-i="valH">How a swap is valued on the books</h3>
+    <div class="flows3">
+      <div class="ctl"><h3 data-i="v1">Performance flow</h3><p data-i="v1d">Latest bid price of the stock minus the contract's reference price.</p></div>
+      <div class="ctl"><h3 data-i="v2">Dividend flow</h3><p data-i="v2d">Dividends or capital reductions paid by the underlying stock.</p></div>
+      <div class="ctl"><h3 data-i="v3">Financing flow</h3><p data-i="v3d">Interest cash flows at the contract rate, discounted on the currency's rate curve.</p></div>
+    </div>
+    <span class="ref">One Report p.338 · <span data-i="valNote">equity linked swap fair value = net of the three flows</span></span>
+
+    <h3 data-i="rkH">Risk controls</h3>
+    <div class="controls">
+      <div class="ctl"><h3 data-i="rk1">Approval before trading</h3><p data-i="rk1d">Runs inside a Risk Management Committee framework. The Investment Committee approves before execution.</p></div>
+      <div class="ctl"><h3 data-i="rk2">Hard limits</h3><p data-i="rk2d">Limits on investment value and liquidity, VaR and accumulated loss. KKPS Risk Management reports daily. Breaches must be cut back within a set time.</p></div>
+      <div class="ctl"><h3 data-i="rk3">Compliance review</h3><p data-i="rk3d">The compliance report covers regulatory compliance for portfolio swap transactions.</p></div>
+    </div>
+    <span class="ref">One Report pp.43, 45, 190</span>
+  </section>
+
+  <section>
+    <span class="eyebrow" data-i="s4eb">Market debate · Oct 2026</span>
+    <h2 data-i="s4h">Open questions on the HFT flow</h2>
+    <p class="muted" data-i="s4p">Market talk says the TRS client is an HFT firm that ends each day flat. Press reports have not confirmed this or named KKPS. Below is analysis, not a legal opinion.</p>
+    <div class="controls">
+      <div class="ctl"><span class="tag" data-i="q1t">Regulatory arbitrage?</span><h3 data-i="q1">A margin loan by another name</h3><p data-i="q1d">The funding leg works like a margin loan, but a flat-by-close client barely borrows overnight. The real gain is intraday buying power outside margin-account rules, and orders that reach the market as broker prop, not as an HFT investor. Since 7 Jul 2025, HFT investors may buy only SET100 stocks, DWs, DRs and ETFs.</p></div>
+      <div class="ctl"><span class="tag" data-i="q2t">Who decides?</span><h3 data-i="q2">Client algo, KKPS kill switch</h3><p data-i="q2d">In a true swap the dealer chooses its hedge. If the client's model drives orders in KKPS's prop book, KKPS is still the legal trader and answers for every order. A kill switch alone sits awkwardly with the 56-1's own Investment Committee approval before execution.</p></div>
+      <div class="ctl"><span class="tag" data-i="q3t">How to flag it?</span><h3 data-i="q3">Prop account, foreign flag</h3><p data-i="q3d">SET books TRS hedge trades as foreign (F) inside the prop account. It says the deals break no rules, and is weighing separate P1/P2 accounts with data restated from early 2025. Members meet on 28 Oct. If the flow counts as foreign in the statistics, the open question is whether foreign and HFT rules should apply at order entry too.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    <span data-i="srcH">Source</span>
+    <ul>
+      <li data-i="src1">Kiatnakin Phatra Bank PCL, 2025 Form 56-1 One Report (English), filed with the Thai SEC on 23 March 2026. KKPS is a subsidiary, so its business is reported in the bank's 56-1. Page numbers are the printed page numbers.</li>
+      <li data-i="src3">Market debate: SET CEO comments reported by Thansettakij, Infoquest and Bangkok Biznews (8–9 Oct 2026); SET news release on securities HFT investors may buy (effective 7 Jul 2025).</li>
+      <li data-i="src2">The simulator is a teaching model with made-up inputs. It does not reflect KKPS terms, pricing or client data.</li>
+    </ul>
+  </footer>
+</div>
+
+<script>
+const T={
+en:{
+ steps:[
+  ["Trade","Agree the basket and post margin","The client and KKPS sign an OTC swap that references a basket of local or foreign shares. The client posts margin, only a fraction of the notional.",null],
+  ["Hedge","KKPS buys the basket","KKPS buys the reference shares in the market so it can pay the client's return without taking the market risk itself. For a short swap, KKPS borrows the shares and sells them.",null],
+  ["Reset","Settle the two legs","At each reset, KKPS pays the client price gains and dividends (the client pays any losses). The client pays financing at the reference rate plus spread, and fees.",null],
+  ["FX","Lock the exchange rate","For foreign baskets, the client can lock the FX rate on profits during the month instead of waiting for month-end conversion.","Added in 2025"],
+  ["Unwind","Close and settle in cash","KKPS sells the hedge basket. The final performance is settled in cash and the client's margin is released. No shares change hands with the client.",null]
+ ],
+ wf:["Performance flow","Dividend flow","Financing flow","Fees","Net to client"],
+ wfS:["Performance flow","Dividend flow (paid)","Borrow fee","Fees","Net to client"],
+ m:"m", mo:" mo",
+ cash:(p,r)=>`P&L ${p} · ${r} on full notional`,
+ cash2:"Needs 100% of the notional as cash.",
+ cashS:"Short selling needs a separate SBL arrangement",
+ cashS2:"The swap gives short exposure in one contract, with KKPS handling the borrow.",
+ kkps:(v)=>`${v} THB m`,
+ kkps2L:"Spread on financing plus fees. Market move is hedged.",
+ kkps2S:"Gross borrow fee plus fees, before KKPS's own borrowing cost.",
+ lim:["Arbitrage trade","System trade","Portfolio TRS","Financial products"]
+},
+th:{
+ steps:[
+  ["เปิดสัญญา","ตกลงตะกร้าหุ้นและวางหลักประกัน","ลูกค้าและ KKPS ทำสัญญาสวอปนอกตลาด (OTC) อ้างอิงตะกร้าหุ้นในประเทศหรือต่างประเทศ ลูกค้าวางหลักประกันเพียงบางส่วนของมูลค่าสัญญา",null],
+  ["ป้องกันความเสี่ยง","KKPS ซื้อหุ้นในตะกร้า","KKPS ซื้อหุ้นอ้างอิงในตลาด เพื่อจ่ายผลตอบแทนให้ลูกค้าได้โดยไม่ต้องรับความเสี่ยงตลาดเอง กรณีสวอปขาย (short) KKPS จะยืมหุ้นมาขาย",null],
+  ["รอบชำระ","ชำระเงินทั้งสองขา","ทุกรอบ KKPS จ่ายกำไรจากราคาและเงินปันผลให้ลูกค้า (ลูกค้าจ่ายส่วนที่ขาดทุน) ส่วนลูกค้าจ่ายดอกเบี้ยตามอัตราอ้างอิงบวกส่วนต่าง และค่าธรรมเนียม",null],
+  ["ล็อกค่าเงิน","ล็อกอัตราแลกเปลี่ยน","สำหรับตะกร้าหุ้นต่างประเทศ ลูกค้าล็อกอัตราแลกเปลี่ยนของกำไรระหว่างเดือนได้ ไม่ต้องรอแปลงค่าเงินตอนสิ้นเดือน","เพิ่มในปี 2568"],
+  ["ปิดสัญญา","ปิดและชำระเป็นเงินสด","KKPS ขายหุ้นที่ใช้ป้องกันความเสี่ยง ชำระผลตอบแทนสุดท้ายเป็นเงินสด และคืนหลักประกันให้ลูกค้า ไม่มีการส่งมอบหุ้นให้ลูกค้า",null]
+ ],
+ wf:["ผลจากราคา","เงินปันผล","ดอกเบี้ย","ค่าธรรมเนียม","สุทธิถึงลูกค้า"],
+ wfS:["ผลจากราคา","เงินปันผล (จ่าย)","ค่ายืมหุ้น","ค่าธรรมเนียม","สุทธิถึงลูกค้า"],
+ m:" ล้าน", mo:" เดือน",
+ cash:(p,r)=>`กำไร/ขาดทุน ${p} · ${r} ต่อเงินลงทุนเต็มจำนวน`,
+ cash2:"ต้องใช้เงินสดเท่ามูลค่าหุ้น 100%",
+ cashS:"การขายชอร์ตต้องทำผ่านบัญชี SBL แยกต่างหาก",
+ cashS2:"สวอปให้สถานะขายได้ในสัญญาเดียว โดย KKPS เป็นผู้ยืมหุ้น",
+ kkps:(v)=>`${v} ล้านบาท`,
+ kkps2L:"ส่วนต่างดอกเบี้ยบวกค่าธรรมเนียม ความเสี่ยงราคาถูกป้องกันไว้",
+ kkps2S:"ค่ายืมหุ้นรวมค่าธรรมเนียม ก่อนหักต้นทุนการยืมของ KKPS",
+ lim:["Arbitrage trade","System trade","Portfolio TRS","ผลิตภัณฑ์การเงิน"]
+}};
+const TX={th:{
+ eyebrow:"แบบ 56-1 One Report ปี 2568 ของ KKP · บล.เกียรตินาคินภัทร",
+ h1:"Portfolio Total Return Swap ของ KKPS",
+ lede:"Total Return Swap ทำให้ลูกค้าสถาบันได้ผลตอบแทนทั้งหมดของตะกร้าหุ้น ทั้งส่วนต่างราคาและเงินปันผล โดยไม่ต้องซื้อหุ้นเอง KKPS เป็นผู้ถือหุ้นไว้เพื่อป้องกันความเสี่ยง และลูกค้าจ่ายดอกเบี้ยกับค่าธรรมเนียมให้ KKPS เป็นการตอบแทน",
+ legR:"ขาผลตอบแทน (Total return)",legRd:"KKPS จ่ายกำไรจากราคาและเงินปันผลของตะกร้าหุ้นให้ลูกค้า ถ้าราคาลด ลูกค้าจ่ายส่วนขาดทุนให้ KKPS",
+ legF:"ขาดอกเบี้ย (Funding)",legFd:"ลูกค้าจ่ายดอกเบี้ยบนมูลค่าสัญญา (อัตราอ้างอิง + ส่วนต่าง) และค่าธรรมเนียมซื้อขายให้ KKPS",
+ s1eb:"เงินไหลอย่างไร",s1h:"วงจรชีวิตของสวอปหนึ่งสัญญา",
+ nCli:"ลูกค้าสถาบัน",nCli2:"ได้สถานะการลงทุน",nK2:"คู่สัญญาสวอป",nMk:"ตลาด",nMk2:"หุ้น SET / ต่างประเทศ",
+ aMargin:"หลักประกัน",aPerf:"ผลตอบแทน",aFin:"ดอกเบี้ย",aFx:"ล็อก FX",aHedge:"ซื้อตะกร้า",aUnw:"ขาย · เงินสด",
+ dgFoot:"ลูกค้าไม่ได้ถือหุ้นเอง KKPS ถือไว้เพื่อป้องกันความเสี่ยง",
+ s2eb:"ลองเล่น",s2h:"สวอปเทียบกับซื้อผ่านบัญชีเงินสด",
+ s2p:"เลื่อนแถบเพื่อดูกระแสเงินสามส่วนของสวอป ผลตอบแทนต่อเงินที่ลูกค้าวางไว้ และรายได้ที่ KKPS ได้รับ ตัวเลขเป็นตัวอย่าง ไม่ใช่ราคาจริงของ KKPS",
+ long:"สวอปซื้อ (Long)",short:"สวอปขาย (Short)",
+ inN:"มูลค่าสัญญา (ล้านบาท)",inPx:"ราคาตะกร้าเปลี่ยนแปลง",inDy:"อัตราเงินปันผล (ต่อปี)",inT:"อายุสัญญา (เดือน)",
+ inBase:"อัตราอ้างอิง (ต่อปี)",inSpr:"ส่วนต่างของ KKPS (ต่อปี)",inSbl:"ค่ายืมหุ้น (ต่อปี)",inM:"หลักประกันลูกค้า (% ของมูลค่า)",inFee:"ค่าธรรมเนียม (ต่อขา)",
+ kPnl:"กำไร/ขาดทุนสุทธิของลูกค้า",kCap:"เงินที่ลูกค้าวาง",kRoc:"ผลตอบแทนต่อเงินที่วาง",
+ wfH:"กระแสเงินของสวอปถึงลูกค้า (ล้านบาท)",cmpCash:"บัญชีเงินสด",cmpK:"รายได้ของ KKPS",
+ simNote:"กระแสเงินจากราคาและเงินปันผลที่จ่ายให้ลูกค้าถูกหักล้างด้วยหุ้นที่ KKPS ถือป้องกันความเสี่ยง KKPS จึงได้ส่วนต่างดอกเบี้ยและค่าธรรมเนียม ไม่ได้รับความเสี่ยงราคา ไม่รวมดอกเบี้ยบนหลักประกันและภาษี",
+ s3eb:"สิ่งที่ 56-1 ระบุ",s3h:"KKPS ทำธุรกิจนี้อย่างไร",tlH:"ลำดับเวลา",
+ tl1:"KKPS เริ่มให้บริการ Portfolio Total Return Swap แก่ลูกค้าสถาบัน ใช้เงินทุนน้อยกว่าการซื้อขายผ่านบัญชีเงินสด และช่วยลูกค้าบริหารระดับ leverage ได้ยืดหยุ่นขึ้น",
+ tl2:"เพิ่มบริการป้องกันความเสี่ยงค่าเงิน ลูกค้าล็อกอัตราแลกเปลี่ยนของกำไรระหว่างเดือนได้ ไม่ต้องรอแปลงค่าเงินตอนสิ้นเดือน",
+ tl3y:"อยู่ตรงไหน",tl3:"เป็นหนึ่งในสี่กลยุทธ์ของฝ่ายค้าหลักทรัพย์และอนุพันธ์ KKPS เป็นคู่สัญญา Portfolio Swap แบบ OTC และลงทุนในตราสารในประเทศหรือต่างประเทศเพื่อป้องกันความเสี่ยง",
+ limH:"วงเงินสดปี 2568 แยกตามกลยุทธ์ (ล้านบาท)",
+ limNote:"ส่วนลายเส้น = วงเงินเพิ่มที่ต้องได้รับอนุมัติเพิ่ม เพดานของฝ่ายโดยคณะกรรมการ 22,000 ล้านบาท (+5,000 ล้านบาทสำหรับ arbitrage) ฝ่ายใช้เงินสดสุทธิ ณ สิ้นปี 2568 รวม 11,085 ล้านบาท ทุกกลยุทธ์รวมกัน",
+ revH:"รายได้มาจากไหน",rv1:"ดอกเบี้ย",rv1d:"ขาดอกเบี้ย ลูกค้าจ่ายดอกเบี้ยบนมูลค่าสัญญาที่ KKPS ให้เงินทุน",
+ rv2:"ค่าธรรมเนียมซื้อขาย",rv2d:"เรียกเก็บเมื่อลูกค้าเปิด ปรับ หรือปิดสถานะในตะกร้า",
+ rv3:"ค่าธรรมเนียมยืมหุ้น",rv3d:"สำหรับสวอปขาย KKPS ยืมหุ้นมาป้องกันความเสี่ยงและเรียกเก็บค่ายืม",
+ pricing:"ราคากำหนดโดยฝ่ายค้าหลักทรัพย์และอนุพันธ์",
+ valH:"การวัดมูลค่าสวอปในงบการเงิน",v1:"Performance flow",v1d:"ราคาเสนอซื้อล่าสุดของหุ้น ลบราคาอ้างอิงของสัญญา",
+ v2:"Dividend flow",v2d:"เงินปันผลหรือการลดทุนที่หุ้นอ้างอิงจ่าย",v3:"Financing flow",v3d:"กระแสดอกเบี้ยตามอัตราในสัญญา คิดลดด้วยเส้นอัตราดอกเบี้ยของสกุลเงินนั้น",
+ valNote:"มูลค่ายุติธรรมของ equity linked swap = ผลสุทธิของทั้งสามส่วน",
+ rkH:"การควบคุมความเสี่ยง",rk1:"อนุมัติก่อนซื้อขาย",rk1d:"ทำภายใต้กรอบของคณะกรรมการบริหารความเสี่ยง และคณะกรรมการการลงทุนอนุมัติก่อนดำเนินการ",
+ rk2:"วงเงินควบคุม",rk2d:"จำกัดมูลค่าและสภาพคล่องของการลงทุน VaR และผลขาดทุนสะสม ฝ่ายบริหารความเสี่ยงรายงานทุกวัน หากเกินต้องลดสถานะภายในเวลาที่กำหนด",
+ rk3:"การตรวจสอบกำกับ",rk3d:"รายงานด้านการกำกับดูแลครอบคลุมการปฏิบัติตามกฎเกณฑ์ของธุรกรรม portfolio swap",
+ s4eb:"ประเด็นถกเถียงในตลาด · ต.ค. 2569",s4h:"คำถามที่ยังเปิดอยู่เรื่องธุรกรรม HFT",
+ s4p:"ข่าวลือในตลาดระบุว่าลูกค้า TRS เป็นนักลงทุน HFT ที่ไม่ถือสถานะข้ามวัน ข่าวที่เผยแพร่ยังไม่ยืนยันและไม่ได้ระบุชื่อ KKPS เนื้อหาด้านล่างเป็นบทวิเคราะห์ ไม่ใช่ความเห็นทางกฎหมาย",
+ q1t:"เลี่ยงเกณฑ์?",q1:"สินเชื่อมาร์จิ้นในรูปแบบอื่น",
+ q1d:"ขาดอกเบี้ยของสวอปทำงานเหมือนสินเชื่อมาร์จิ้น แต่ลูกค้าที่ปิดสถานะทุกวันแทบไม่ได้กู้ข้ามคืน ประโยชน์จริงคืออำนาจซื้อระหว่างวันนอกเกณฑ์บัญชีมาร์จิ้น และคำสั่งที่เข้าตลาดในนามบัญชีบริษัท ไม่ใช่นักลงทุน HFT ตั้งแต่ 7 ก.ค. 2568 นักลงทุน HFT ซื้อได้เฉพาะหุ้น SET100, DW, DR และ ETF",
+ q2t:"ใครตัดสินใจ?",q2:"โมเดลของลูกค้า KKPS มีแค่ kill switch",
+ q2d:"ในสวอปที่แท้จริง ผู้ค้าเป็นผู้เลือกวิธีป้องกันความเสี่ยงเอง หากโมเดลของลูกค้าเป็นผู้ส่งคำสั่งในบัญชีบริษัทของ KKPS ตามกฎหมาย KKPS ยังเป็นผู้ซื้อขายและต้องรับผิดชอบทุกคำสั่ง การมีแค่ kill switch ดูไม่สอดคล้องกับที่ 56-1 ระบุว่าคณะกรรมการการลงทุนต้องอนุมัติก่อนดำเนินการ",
+ q3t:"ติด flag อย่างไร?",q3:"บัญชีบริษัท แต่ flag ต่างชาติ",
+ q3d:"ปัจจุบัน ตลท. บันทึกการซื้อขายป้องกันความเสี่ยงของ TRS เป็นต่างชาติ (F) ภายในบัญชีบริษัท ตลท. ระบุว่าไม่ผิดเกณฑ์ และกำลังพิจารณาแยกบัญชี P1/P2 พร้อมปรับข้อมูลย้อนหลังถึงต้นปี 2568 นัดประชุมสมาชิก 28 ต.ค. คำถามคือ ถ้านับเป็นต่างชาติในสถิติ เกณฑ์ต่างชาติและ HFT ควรใช้ตั้งแต่ตอนส่งคำสั่งด้วยหรือไม่",
+ src3:"ประเด็นถกเถียง: ความเห็นของกรรมการผู้จัดการ ตลท. ตามรายงานของฐานเศรษฐกิจ อินโฟเควสท์ และกรุงเทพธุรกิจ (8–9 ต.ค. 2569) และข่าว ตลท. เรื่องหลักทรัพย์ที่นักลงทุน HFT ซื้อได้ (มีผล 7 ก.ค. 2568)",
+ srcH:"แหล่งข้อมูล",
+ src1:"ธนาคารเกียรตินาคินภัทร จำกัด (มหาชน) แบบ 56-1 One Report ปี 2568 (ฉบับภาษาอังกฤษ) ยื่นต่อ ก.ล.ต. วันที่ 23 มีนาคม 2569 KKPS เป็นบริษัทย่อย จึงรายงานธุรกิจไว้ใน 56-1 ของธนาคาร เลขหน้าอ้างอิงตามเลขที่พิมพ์ในเล่ม",
+ src2:"เครื่องจำลองเป็นตัวอย่างเพื่อการเรียนรู้ ใช้ตัวเลขสมมติ ไม่ได้สะท้อนเงื่อนไข ราคา หรือข้อมูลลูกค้าของ KKPS"
+}};
+const EN={}; document.querySelectorAll("[data-i]").forEach(e=>EN[e.dataset.i]=e.innerHTML);
+
+let lang="en", step=0, dir="long";
+const stepFlows=[["f-margin"],["f-hedge"],["f-perf","f-fin"],["f-fx"],["f-unwind","f-perf"]];
+const $=id=>document.getElementById(id);
+
+function renderSteps(){
+  const s=T[lang].steps, box=$("steps"); box.innerHTML="";
+  s.forEach((x,i)=>{const b=document.createElement("button");b.setAttribute("aria-pressed",i===step);
+    b.innerHTML=`<span class="n">${i+1}</span><span>${x[0]}</span>`;b.onclick=()=>{step=i;renderSteps();};box.appendChild(b);});
+  document.querySelectorAll(".flow").forEach(g=>{const on=stepFlows[step].includes(g.id);g.classList.toggle("on",on);g.classList.toggle("off",!on);});
+  $("stepNum").textContent=step+1; $("stepTitle").textContent=s[step][1]; $("stepBody").textContent=s[step][2];
+  const tag=$("stepTag"); tag.hidden=!s[step][3]; tag.textContent=s[step][3]||"";
+  $("f-hedge").querySelector("text").textContent = dir==="short" ? (lang==="th"?"ยืม & ขาย":"borrow & sell") : (lang==="th"?TX.th.aHedge:EN.aHedge);
+}
+
+const fmt=(v,d=2)=>(v>0?"+":v<0?"−":"")+Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const pct=v=>fmt(v*100,1)+"%";
+function val(id){return parseFloat($(id).value)}
+function calc(){
+  const N=val("in-n"),px=val("in-px")/100,dy=val("in-dy")/100,t=val("in-t")/12,base=val("in-base")/100,spr=val("in-spr")/100,sbl=val("in-sbl")/100,m=val("in-m")/100,fee=val("in-fee")/100;
+  const L=T[lang];
+  $("o-n").textContent=N.toLocaleString("en-US"); $("o-px").textContent=fmt(px*100,0)+"%"; $("o-dy").textContent=(dy*100).toFixed(2)+"%";
+  $("o-t").textContent=val("in-t")+L.mo; $("o-base").textContent=(base*100).toFixed(2)+"%"; $("o-spr").textContent=(spr*100).toFixed(2)+"%";
+  $("o-sbl").textContent=(sbl*100).toFixed(2)+"%"; $("o-m").textContent=(m*100).toFixed(0)+"%"; $("o-fee").textContent=(fee*100).toFixed(2)+"%";
+  const long=dir==="long";
+  const perf=(long?1:-1)*N*px, div=(long?1:-1)*N*dy*t, fin=long?-N*(base+spr)*t:-N*sbl*t, fees=-N*fee*2, net=perf+div+fin+fees, cap=N*m;
+  $("k-pnl").textContent=fmt(net)+L.m; $("k-pnl").className="v "+(net>=0?"pos":"neg");
+  $("k-cap").textContent=cap.toLocaleString("en-US",{maximumFractionDigits:1})+L.m;
+  $("k-roc").textContent=pct(net/cap); $("k-roc").className="v "+(net>=0?"pos":"neg");
+  const rows=[perf,div,fin,fees,net], labels=long?L.wf:L.wfS, mx=Math.max(...rows.map(Math.abs),0.01);
+  $("wf").innerHTML=rows.map((v,i)=>{const w=Math.abs(v)/mx*50, col=i===4?(v>=0?"var(--pos)":"var(--neg)"):(i<2?"var(--ret)":(i===2?"var(--fund)":"var(--muted)"));
+    const pos=v>=0?`left:50%;width:${w}%`:`left:${50-w}%;width:${w}%`;
+    return `<div class="wfrow${i===4?" total":""}"><span>${labels[i]}</span><span class="track"><span class="bar" style="${pos};background:${col}"></span></span><span class="num ${v>=0?"pos":"neg"}">${fmt(v)}</span></div>`;}).join("");
+  if(long){const cp=N*px+N*dy*t+fees;$("c-cash").textContent=L.cash(fmt(cp)+L.m,pct(cp/N));$("c-cash2").textContent=L.cash2;}
+  else{$("c-cash").textContent=L.cashS;$("c-cash2").textContent=L.cashS2;}
+  const k=long?N*spr*t+N*fee*2:N*sbl*t+N*fee*2;
+  $("c-k").textContent=L.kkps(fmt(k)); $("c-k2").textContent=long?L.kkps2L:L.kkps2S;
+  $("fld-base").hidden=!long; $("fld-spr").hidden=!long; $("fld-sbl").hidden=long;
+}
+function renderLimits(){
+  const d=[[16000,5000],[1200,0],[15000,0],[5000,5000]], max=21000, L=T[lang].lim;
+  $("limits").innerHTML=d.map((x,i)=>`<div class="lim${i===2?" hi":""}"><span>${L[i]}</span><span class="tr"><span class="base" style="width:${x[0]/max*78}%"></span>${x[1]?`<span class="extra" style="width:${x[1]/max*78}%"></span>`:""}<span class="v">${x[0].toLocaleString("en-US")}${x[1]?" +"+x[1].toLocaleString("en-US"):""}</span></span></div>`).join("");
+}
+function setLang(l){lang=l;
+  document.querySelectorAll("[data-i]").forEach(e=>{const k=e.dataset.i;e.innerHTML=(l==="th"&&TX.th[k])?TX.th[k]:EN[k];});
+  document.documentElement.lang=l; $("lang-en").setAttribute("aria-pressed",l==="en"); $("lang-th").setAttribute("aria-pressed",l==="th");
+  renderSteps();calc();renderLimits();
+  try{localStorage.setItem("trs-lang",l)}catch(e){}
+}
+function setDir(d){dir=d;$("dir-long").setAttribute("aria-pressed",d==="long");$("dir-short").setAttribute("aria-pressed",d==="short");calc();renderSteps();}
+$("lang-en").onclick=()=>setLang("en"); $("lang-th").onclick=()=>setLang("th");
+$("dir-long").onclick=()=>setDir("long"); $("dir-short").onclick=()=>setDir("short");
+document.querySelectorAll("input[type=range]").forEach(i=>i.addEventListener("input",calc));
+let saved="en"; try{saved=localStorage.getItem("trs-lang")||"en"}catch(e){}
+setLang(saved);
+</script>
+
+</body>
+</html>
